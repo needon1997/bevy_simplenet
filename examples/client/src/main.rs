@@ -20,11 +20,10 @@ use wasm_timer::{SystemTime, UNIX_EPOCH};
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 
-type DemoClient      = bevy_simplenet::Client<DemoChannel>;
+type DemoClient = bevy_simplenet::Client<DemoChannel>;
 type DemoClientEvent = bevy_simplenet::ClientEventFrom<DemoChannel>;
 
-fn client_factory() -> bevy_simplenet::ClientFactory<DemoChannel>
-{
+fn client_factory() -> bevy_simplenet::ClientFactory<DemoChannel> {
     bevy_simplenet::ClientFactory::<DemoChannel>::new("demo")
 }
 
@@ -32,8 +31,7 @@ fn client_factory() -> bevy_simplenet::ClientFactory<DemoChannel>
 //-------------------------------------------------------------------------------------------------------------------
 
 #[derive(Resource, Copy, Clone, Eq, PartialEq, Debug)]
-enum ConnectionStatus
-{
+enum ConnectionStatus {
     Connecting,
     Connected,
     Dead,
@@ -42,13 +40,11 @@ enum ConnectionStatus
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 
-fn status_to_string(status: ConnectionStatus) -> &'static str
-{
-    match status
-    {
+fn status_to_string(status: ConnectionStatus) -> &'static str {
+    match status {
         ConnectionStatus::Connecting => "connecting...",
-        ConnectionStatus::Connected  => "connected",
-        ConnectionStatus::Dead       => "DEAD",
+        ConnectionStatus::Connected => "connected",
+        ConnectionStatus::Dead => "DEAD",
     }
 }
 
@@ -56,17 +52,16 @@ fn status_to_string(status: ConnectionStatus) -> &'static str
 //-------------------------------------------------------------------------------------------------------------------
 
 #[derive(Component, Default)]
-struct ButtonOwner
-{
-    server_authoritative_id : Option<u128>,
-    predicted_id            : Option<u128>
+struct ButtonOwner {
+    server_authoritative_id: Option<u128>,
+    predicted_id: Option<u128>,
 }
 
-impl ButtonOwner
-{
-    fn display_id(&self) -> Option<u128>
-    {
-        if self.predicted_id.is_some() { return self.predicted_id }
+impl ButtonOwner {
+    fn display_id(&self) -> Option<u128> {
+        if self.predicted_id.is_some() {
+            return self.predicted_id;
+        }
         self.server_authoritative_id
     }
 }
@@ -86,30 +81,35 @@ struct ButtonOwnerTextFlag;
 #[derive(Component)]
 struct PendingSelect(Option<bevy_simplenet::RequestSignal>);
 
-impl PendingSelect
-{
-    fn equals_request(&self, request_id: u64) -> bool
-    {
-        let Some(signal) = &self.0 else { return false; };
+impl PendingSelect {
+    fn equals_request(&self, request_id: u64) -> bool {
+        let Some(signal) = &self.0 else {
+            return false;
+        };
         signal.id() == request_id
     }
 
-    fn is_predicted(&self) -> bool
-    {
+    fn is_predicted(&self) -> bool {
         self.0.is_some()
     }
 }
 
-impl Default for PendingSelect { fn default() -> Self { Self(None) } }
+impl Default for PendingSelect {
+    fn default() -> Self {
+        Self(None)
+    }
+}
 
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 
 fn refresh_status_text(
-    mut status_text : Query<&mut Text, With<ConnectionStatusFlag>>,
-    status          : Res<ConnectionStatus>,
-){
-    if !status.is_changed() { return; }
+    mut status_text: Query<&mut Text, With<ConnectionStatusFlag>>,
+    status: Res<ConnectionStatus>,
+) {
+    if !status.is_changed() {
+        return;
+    }
     let text_section = &mut status_text.single_mut().sections[0].value;
     text_section.clear();
     let _ = write!(text_section, "Status: {}", status_to_string(*status));
@@ -119,16 +119,21 @@ fn refresh_status_text(
 //-------------------------------------------------------------------------------------------------------------------
 
 fn refresh_button_owner_text(
-    mut status_text : Query<&mut Text, With<ButtonOwnerTextFlag>>,
-    current_state   : Query<&ButtonOwner, Changed<ButtonOwner>>,
-){
-    if current_state.is_empty() { return; }
+    mut status_text: Query<&mut Text, With<ButtonOwnerTextFlag>>,
+    current_state: Query<&ButtonOwner, Changed<ButtonOwner>>,
+) {
+    if current_state.is_empty() {
+        return;
+    }
     let text_section = &mut status_text.single_mut().sections[0].value;
     text_section.clear();
-    match current_state.single().display_id()
-    {
-        Some(id) => { let _ = write!(text_section, "Owner: {}", id % 1_000_000u128); }
-        None     => { let _ = write!(text_section, "No owner"); }
+    match current_state.single().display_id() {
+        Some(id) => {
+            let _ = write!(text_section, "Owner: {}", id % 1_000_000u128);
+        }
+        None => {
+            let _ = write!(text_section, "No owner");
+        }
     }
 }
 
@@ -137,16 +142,15 @@ fn refresh_button_owner_text(
 
 /// Handler for when the button is selected.
 fn handle_button_select(
-    mut commands      : Commands,
-    client            : Res<DemoClient>,
-    status            : Res<ConnectionStatus>,
-    mut current_state : Query<(&mut PendingSelect, &mut ButtonOwner, &Callback<Deselect>)>,
-){
+    mut commands: Commands,
+    client: Res<DemoClient>,
+    status: Res<ConnectionStatus>,
+    mut current_state: Query<(&mut PendingSelect, &mut ButtonOwner, &Callback<Deselect>)>,
+) {
     let (mut pending_select, mut owner, deselect_callback) = current_state.single_mut();
 
     // if not connected then we force-deselect
-    if *status != ConnectionStatus::Connected
-    {
+    if *status != ConnectionStatus::Connected {
         commands.add(deselect_callback.clone());
         return;
     }
@@ -155,7 +159,7 @@ fn handle_button_select(
     let signal = client.request(DemoClientRequest::Select);
 
     // save the predicted input
-    pending_select.0   = Some(signal);
+    pending_select.0 = Some(signal);
     owner.predicted_id = Some(client.id());
 }
 
@@ -163,12 +167,11 @@ fn handle_button_select(
 //-------------------------------------------------------------------------------------------------------------------
 
 /// Handler for when the button is deselected.
-fn handle_button_deselect(mut current_state : Query<(&mut PendingSelect, &mut ButtonOwner)>)
-{
+fn handle_button_deselect(mut current_state: Query<(&mut PendingSelect, &mut ButtonOwner)>) {
     let (mut pending_select, mut owner) = current_state.single_mut();
 
     // clear the input prediction
-    pending_select.0   = None;
+    pending_select.0 = None;
     owner.predicted_id = None;
 }
 
@@ -176,22 +179,23 @@ fn handle_button_deselect(mut current_state : Query<(&mut PendingSelect, &mut Bu
 //-------------------------------------------------------------------------------------------------------------------
 
 fn set_new_server_state(
-    In(server_state)  : In<Option<u128>>,
-    mut commands      : Commands,
-    client            : Res<DemoClient>,
-    mut current_state : Query<(&PendingSelect, &mut ButtonOwner, &Callback<Deselect>)>,
-){
+    In(server_state): In<Option<u128>>,
+    mut commands: Commands,
+    client: Res<DemoClient>,
+    mut current_state: Query<(&PendingSelect, &mut ButtonOwner, &Callback<Deselect>)>,
+) {
     let (pending_select, mut owner, deselect_callback) = current_state.single_mut();
 
     // update server state
     owner.server_authoritative_id = server_state;
 
     // check if we are predicted
-    if pending_select.is_predicted() { return; }
+    if pending_select.is_predicted() {
+        return;
+    }
 
     // if not predicted and server state doesn't match our id, deselect
-    if server_state != Some(client.id())
-    {
+    if server_state != Some(client.id()) {
         commands.add(deselect_callback.clone());
     }
 }
@@ -199,105 +203,101 @@ fn set_new_server_state(
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 
-fn connection_status_section(ui: &mut UiBuilder<MainUi>, area: Widget)
-{
+fn connection_status_section(ui: &mut UiBuilder<MainUi>, area: Widget) {
     // text layout helper
     let layout_helper = Widget::create(
-            ui.tree(),
-            area.end(""),
-            RelativeLayout{  //add slight buffer around edge; extend y-axis to avoid resizing issues
-                absolute_1: Vec2 { x: 5., y: 5. },
-                absolute_2: Vec2 { x: -5., y: 0. },
-                relative_1: Vec2 { x: 0., y: 0. },
-                relative_2: Vec2 { x: 100., y: 200. },
-                ..Default::default()
-            }
-        ).unwrap();
+        ui.tree(),
+        area.end(""),
+        RelativeLayout {
+            //add slight buffer around edge; extend y-axis to avoid resizing issues
+            absolute_1: Vec2 { x: 5., y: 5. },
+            absolute_2: Vec2 { x: -5., y: 0. },
+            relative_1: Vec2 { x: 0., y: 0. },
+            relative_2: Vec2 { x: 100., y: 200. },
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
     // text widget
     let text = Widget::create(
-            ui.tree(),
-            layout_helper.end(""),
-            SolidLayout::new()  //keep text in top right corner when window is resized
-                .with_horizontal_anchor(1.0)
-                .with_vertical_anchor(-1.0),
-        ).unwrap();
+        ui.tree(),
+        layout_helper.end(""),
+        SolidLayout::new() //keep text in top right corner when window is resized
+            .with_horizontal_anchor(1.0)
+            .with_vertical_anchor(-1.0),
+    )
+    .unwrap();
 
     let text_style = TextStyle {
-            font      : ui.asset_server.load("fonts/FiraSans-Bold.ttf"),
-            font_size : 45.0,
-            color     : Color::WHITE,
-        };
+        font: ui.asset_server.load("fonts/FiraSans-Bold.ttf"),
+        font_size: 45.0,
+        color: Color::WHITE,
+    };
 
-    ui.commands().spawn(
-            (
-                TextElementBundle::new(
-                    text,
-                    TextParams::topleft().with_style(&text_style),
-                    "Status: connecting..."  //use initial value to get correct initial text boundary
-                ),
-                ConnectionStatusFlag
-            )
-        );
+    ui.commands().spawn((
+        TextElementBundle::new(
+            text,
+            TextParams::topleft().with_style(&text_style),
+            "Status: connecting...", //use initial value to get correct initial text boundary
+        ),
+        ConnectionStatusFlag,
+    ));
 }
 
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 
-fn button_owner_section(ui: &mut UiBuilder<MainUi>, area: Widget)
-{
+fn button_owner_section(ui: &mut UiBuilder<MainUi>, area: Widget) {
     // text layout helper (extend y-axis to avoid resizing issues)
     let layout_helper = relative_widget(ui.tree(), area.end(""), (0., 100.), (0., 200.));
 
     // text widget
     let text = Widget::create(ui.tree(), layout_helper.end(""), SolidLayout::new()).unwrap();
     let text_style = TextStyle {
-            font      : ui.asset_server.load("fonts/FiraSans-Bold.ttf"),
-            font_size : 45.0,
-            color     : Color::WHITE,
-        };
+        font: ui.asset_server.load("fonts/FiraSans-Bold.ttf"),
+        font_size: 45.0,
+        color: Color::WHITE,
+    };
 
-    ui.commands().spawn(
-            (
-                TextElementBundle::new(
-                    text,
-                    TextParams::center().with_style(&text_style),
-                    "Owner: 000000"  //use initial value to get correct initial text boundary
-                ),
-                ButtonOwnerTextFlag
-            )
-        );
+    ui.commands().spawn((
+        TextElementBundle::new(
+            text,
+            TextParams::center().with_style(&text_style),
+            "Owner: 000000", //use initial value to get correct initial text boundary
+        ),
+        ButtonOwnerTextFlag,
+    ));
 }
 
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 
-fn button_section(ui: &mut UiBuilder<MainUi>, area: Widget)
-{
+fn button_section(ui: &mut UiBuilder<MainUi>, area: Widget) {
     // default button image tied to button
     let default_widget = make_overlay(ui.tree(), &area, "default", true);
     let image = ImageElementBundle::new(
-            &default_widget,
-            ImageParams::center()
-                .with_width(Some(100.))
-                .with_height(Some(100.))
-                .with_color(Color::GRAY),
-            ui.asset_server.load("example_button_rect.png"),
-            Vec2::new(250.0, 142.0)
-        );
+        &default_widget,
+        ImageParams::center()
+            .with_width(Some(100.))
+            .with_height(Some(100.))
+            .with_color(Color::GRAY),
+        ui.asset_server.load("example_button_rect.png"),
+        Vec2::new(250.0, 142.0),
+    );
     ui.commands().spawn(image);
 
     // selected button image tied to button
     let selected_widget = make_overlay(ui.tree(), &area, "selected", false);
     let image = ImageElementBundle::new(
-            &selected_widget,
-            ImageParams::center()
-                .with_width(Some(100.))
-                .with_height(Some(100.))
-                .with_color(Color::DARK_GRAY),  //tint when selected
-            ui.asset_server.load("example_button_rect.png"),
-            Vec2::new(250.0, 142.0)
-        );
+        &selected_widget,
+        ImageParams::center()
+            .with_width(Some(100.))
+            .with_height(Some(100.))
+            .with_color(Color::DARK_GRAY), //tint when selected
+        ui.asset_server.load("example_button_rect.png"),
+        Vec2::new(250.0, 142.0),
+    );
     ui.commands().spawn(image);
 
     // button interactivity
@@ -313,19 +313,13 @@ fn button_section(ui: &mut UiBuilder<MainUi>, area: Widget)
     entity_commands.insert(UiInteractionBarrier::<MainUi>::default());
 
     // cached select signal and server state tracking
-    entity_commands.insert(
-            (
-                PendingSelect::default(),
-                ButtonOwner::default(),
-            )
-        );
+    entity_commands.insert((PendingSelect::default(), ButtonOwner::default()));
 }
 
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 
-fn build_ui(mut ui: UiBuilder<MainUi>)
-{
+fn build_ui(mut ui: UiBuilder<MainUi>) {
     // root widget
     let root = relative_widget(ui.tree(), "root", (0., 100.), (0., 100.));
 
@@ -345,15 +339,27 @@ fn build_ui(mut ui: UiBuilder<MainUi>)
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 
-fn setup(mut commands: Commands, window: Query<Entity, (With<Window>, With<PrimaryWindow>)>)
-{
+fn setup(mut commands: Commands, window: Query<Entity, (With<Window>, With<PrimaryWindow>)>) {
     // prepare 2D camera
-    commands.spawn(
-            Camera2dBundle{ transform: Transform{ translation: Vec3 { x: 0., y: 0., z: 1000. }, ..default() }, ..default() }
-        );
+    commands.spawn(Camera2dBundle {
+        transform: Transform {
+            translation: Vec3 {
+                x: 0.,
+                y: 0.,
+                z: 1000.,
+            },
+            ..default()
+        },
+        ..default()
+    });
 
     // make lunex cursor
-    commands.spawn((Cursor::new(), Transform::default(), Visibility::default(), MainMouseCursor));
+    commands.spawn((
+        Cursor::new(),
+        Transform::default(),
+        Visibility::default(),
+        MainMouseCursor,
+    ));
 
     // prepare lunex ui tree
     commands.insert_resource(StyleStackRes::<MainUi>::default());
@@ -367,64 +373,65 @@ fn setup(mut commands: Commands, window: Query<Entity, (With<Window>, With<Prima
 //-------------------------------------------------------------------------------------------------------------------
 
 fn handle_client_events(
-    mut commands      : Commands,
-    mut client        : ResMut<DemoClient>,
-    mut status        : ResMut<ConnectionStatus>,
-    mut current_state : Query<(&mut PendingSelect, &mut ButtonOwner, &Callback<Deselect>)>,
-){
+    mut commands: Commands,
+    mut client: ResMut<DemoClient>,
+    mut status: ResMut<ConnectionStatus>,
+    mut current_state: Query<(&mut PendingSelect, &mut ButtonOwner, &Callback<Deselect>)>,
+) {
     let (mut pending_select, mut owner, deselect_callback) = current_state.single_mut();
 
-    while let Some(client_event) = client.next()
-    {
-        match client_event
-        {
-            DemoClientEvent::Report(connection_report) => match connection_report
-            {
-                bevy_simplenet::ClientReport::Connected         => *status = ConnectionStatus::Connected,
-                bevy_simplenet::ClientReport::Disconnected      |
-                bevy_simplenet::ClientReport::ClosedByServer(_) |
-                bevy_simplenet::ClientReport::ClosedBySelf      => *status = ConnectionStatus::Connecting,
-                bevy_simplenet::ClientReport::IsDead(aborted_reqs) =>
-                {
-                    for aborted_req in aborted_reqs
-                    {
-                        if !pending_select.equals_request(aborted_req) { continue; }
+    while let Some(client_event) = client.try_next() {
+        match client_event {
+            DemoClientEvent::Report(connection_report) => match connection_report {
+                bevy_simplenet::ClientReport::Connected => *status = ConnectionStatus::Connected,
+                bevy_simplenet::ClientReport::Disconnected
+                | bevy_simplenet::ClientReport::ClosedByServer(_)
+                | bevy_simplenet::ClientReport::ClosedBySelf => {
+                    *status = ConnectionStatus::Connecting
+                }
+                bevy_simplenet::ClientReport::IsDead(aborted_reqs) => {
+                    for aborted_req in aborted_reqs {
+                        if !pending_select.equals_request(aborted_req) {
+                            continue;
+                        }
 
                         // an error occurred, roll back the predicted input
                         commands.add(deselect_callback.clone());
                     }
                     *status = ConnectionStatus::Dead;
                 }
-            }
-            DemoClientEvent::Msg(message) => match message
-            {
-                DemoServerMsg::Current(new_id) =>
-                {
+            },
+            DemoClientEvent::Msg(message) => match message {
+                DemoServerMsg::Current(new_id) => {
                     // reset current state
-                    commands.add(move |world: &mut World| syscall(world, new_id, set_new_server_state));
+                    commands
+                        .add(move |world: &mut World| syscall(world, new_id, set_new_server_state));
                 }
-            }
-            DemoClientEvent::Ack(request_id) =>
-            {
-                if !pending_select.equals_request(request_id) { continue; }
+            },
+            DemoClientEvent::Ack(request_id) => {
+                if !pending_select.equals_request(request_id) {
+                    continue;
+                }
 
                 // merge predicted input
                 owner.server_authoritative_id = owner.predicted_id;
-                owner.predicted_id            = None;
-                pending_select.0              = None;
+                owner.predicted_id = None;
+                pending_select.0 = None;
             }
-            DemoClientEvent::Reject(request_id) =>
-            {
-                if !pending_select.equals_request(request_id) { continue; }
+            DemoClientEvent::Reject(request_id) => {
+                if !pending_select.equals_request(request_id) {
+                    continue;
+                }
 
                 // roll back predicted input
                 commands.add(deselect_callback.clone());
             }
-            DemoClientEvent::Response((), request_id) |
-            DemoClientEvent::SendFailed(request_id)    |
-            DemoClientEvent::ResponseLost(request_id)  =>
-            {
-                if !pending_select.equals_request(request_id) { continue; }
+            DemoClientEvent::Response((), request_id)
+            | DemoClientEvent::SendFailed(request_id)
+            | DemoClientEvent::ResponseLost(request_id) => {
+                if !pending_select.equals_request(request_id) {
+                    continue;
+                }
 
                 // an error occurred, roll back the predicted input
                 commands.add(deselect_callback.clone());
@@ -436,8 +443,7 @@ fn handle_client_events(
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 
-fn main()
-{
+fn main() {
     // setup wasm tracing
     #[cfg(target_family = "wasm")]
     {
@@ -448,38 +454,47 @@ fn main()
     // simplenet client
     // - we use a baked-in address so you can close and reopen the server to test clients being disconnected
     let client = client_factory().new_client(
-            enfync::builtin::Handle::default(),  //automatically selects native/WASM runtime
-            url::Url::parse("ws://127.0.0.1:48888/ws").unwrap(),
-            bevy_simplenet::AuthRequest::None{
-                client_id: SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis()
-            },
-            bevy_simplenet::ClientConfig{
-                reconnect_on_disconnect   : true,
-                reconnect_on_server_close : true,
-                ..Default::default()
-            },
-            ()
-        );
+        enfync::builtin::Handle::default(), //automatically selects native/WASM runtime
+        url::Url::parse("ws://127.0.0.1:48888/ws").unwrap(),
+        bevy_simplenet::AuthRequest::None {
+            client_id: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis(),
+        },
+        bevy_simplenet::ClientConfig {
+            reconnect_on_disconnect: true,
+            reconnect_on_server_close: true,
+            ..Default::default()
+        },
+        (),
+    );
 
     // prepare bevy plugins
-    let bevy_plugins = bevy::DefaultPlugins
-        .set(
-            WindowPlugin{
-                primary_window: Some(Window{ window_theme: Some(WindowTheme::Dark), ..Default::default() }),
-                ..Default::default()
-            }
-        );
+    let bevy_plugins = bevy::DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            window_theme: Some(WindowTheme::Dark),
+            ..Default::default()
+        }),
+        ..Default::default()
+    });
 
     // reduce input lag on native targets
     #[cfg(not(target_family = "wasm"))]
-    let bevy_plugins = bevy_plugins.build().disable::<bevy::render::pipelined_rendering::PipelinedRenderingPlugin>();
+    let bevy_plugins = bevy_plugins
+        .build()
+        .disable::<bevy::render::pipelined_rendering::PipelinedRenderingPlugin>();
 
     // run client
     App::new()
         .add_plugins(bevy_plugins)
-        .insert_resource(WinitSettings{
-            focused_mode   : UpdateMode::Reactive{ wait: std::time::Duration::from_millis(100) },
-            unfocused_mode : UpdateMode::Reactive{ wait: std::time::Duration::from_millis(100) },
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Reactive {
+                wait: std::time::Duration::from_millis(100),
+            },
+            unfocused_mode: UpdateMode::Reactive {
+                wait: std::time::Duration::from_millis(100),
+            },
             ..Default::default()
         })
         .add_plugins(ReactPlugin)
@@ -489,12 +504,15 @@ fn main()
         .insert_resource(ConnectionStatus::Connecting)
         .add_systems(PreStartup, setup)
         .add_systems(Startup, build_ui)
-        .add_systems(Update,
+        .add_systems(
+            Update,
             (
-                handle_client_events, apply_deferred,
+                handle_client_events,
+                apply_deferred,
                 refresh_status_text,
                 refresh_button_owner_text,
-            ).chain()
+            )
+                .chain(),
         )
         .run();
 }
