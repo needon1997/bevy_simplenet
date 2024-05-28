@@ -19,3 +19,6 @@ url                   = { version = "2.4" }
 console_error_panic_hook = { version = "0.1" }
 tracing-wasm             = { version = "0.2" }
 wasm-timer               = { version = "0.2" }
+
+[target.wasm32-unknown-unknown]
+runner = "wasm-server-runner"

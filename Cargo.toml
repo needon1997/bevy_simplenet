@@ -31,7 +31,7 @@ default = ["bevy", "client", "server"]
 bevy = ["dep:bevy_ecs"]
 
 # Enable clients.
-client = []
+client = ["tokio"]
 
 # Enable servers.
 server = ["axum", "axum-server", "ezsockets/axum", "ezsockets/server", "tokio"]
@@ -57,7 +57,7 @@ url             = { version = "2.4" }
 axum        = { version = "0.6", optional = true }
 axum-server = { version = "0.5", optional = true }
 bevy_ecs    = { version = "0.13", optional = true }
-tokio       = { version = "1", optional = true, features = ["sync"] }
+tokio       = { version = "1", optional = true, features = ["sync", "rt"] }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 wasm-timer = { version = "0.2" }
